@@ -15,26 +15,149 @@ const SeverancePomodoro = () => {
   const [musicPosition, setMusicPosition] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [windyPlaying, setWindyPlaying] = useState(false);
+  const [ytPlayer, setYtPlayer] = useState(null);
+  const [ytReady, setYtReady] = useState(false);
+  const [videoPlayer, setVideoPlayer] = useState(null);
+  const [totalWorkInput, setTotalWorkInput] = useState('');
+  const [isTotalWorkFocused, setIsTotalWorkFocused] = useState(false);
+  const [settingsChanged, setSettingsChanged] = useState(false);
+  const [oldWorkDuration, setOldWorkDuration] = useState(30);
+  const [oldBreakDuration, setOldBreakDuration] = useState(20);
   
-  const audioRef = useRef(null);
   const windyRef = useRef(null);
   const intervalRef = useRef(null);
-
-  // Debug - sprawdź czy ref-y są gotowe
-  useEffect(() => {
-    console.log('audioRef:', audioRef.current);
-    console.log('windyRef:', windyRef.current);
-  }, []);
+  const playerRef = useRef(null);
+  const videoPlayerRef = useRef(null);
 
   const tracks = [
-    'Track 1 - Ambient Dystopia',
-    'Track 2 - Corporate Silence',
-    'Track 3 - Severance Floor',
-    'Track 4 - Data Refinement',
-    'Track 5 - Innie Protocol',
-    'Track 6 - Break Room',
-    'Track 7 - The You You Are'
+    'Severance OST - Theodore Shapiro'
   ];
+
+  const YOUTUBE_VIDEO_ID = 'JRnDYB28bL8';
+
+  // Załaduj YouTube API
+  useEffect(() => {
+    const loadYouTubeAPI = () => {
+      if (window.YT && window.YT.Player) {
+        console.log('YouTube API already loaded');
+        setYtReady(true);
+        return;
+      }
+
+      if (!document.getElementById('youtube-api-script')) {
+        const tag = document.createElement('script');
+        tag.id = 'youtube-api-script';
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        window.onYouTubeIframeAPIReady = () => {
+          console.log('YouTube API ready via callback');
+          setYtReady(true);
+        };
+      }
+    };
+
+    loadYouTubeAPI();
+
+    // Fallback - sprawdź co 500ms czy API jest gotowe
+    const checkInterval = setInterval(() => {
+      if (window.YT && window.YT.Player) {
+        console.log('YouTube API detected via polling');
+        setYtReady(true);
+        clearInterval(checkInterval);
+      }
+    }, 500);
+
+    return () => clearInterval(checkInterval);
+  }, []);
+
+  // Stwórz player gdy API jest gotowe
+  useEffect(() => {
+    if (!ytReady) {
+      console.log('Waiting for YouTube API...');
+      return;
+    }
+
+    if (ytPlayer) {
+      console.log('Player already exists');
+      return;
+    }
+
+    if (!playerRef.current) {
+      console.log('playerRef not ready yet');
+      return;
+    }
+
+    console.log('Creating YouTube player...');
+    
+    try {
+      const player = new window.YT.Player(playerRef.current, {
+        height: '0',
+        width: '0',
+        videoId: YOUTUBE_VIDEO_ID,
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          playsinline: 1,
+        },
+        events: {
+          onReady: (event) => {
+            console.log('YouTube player ready!');
+            setYtPlayer(event.target);
+          },
+          onError: (event) => {
+            console.error('YouTube player error:', event.data);
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error creating player:', error);
+    }
+  }, [ytReady, ytPlayer]);
+
+  // Stwórz video player
+  useEffect(() => {
+    if (!ytReady) return;
+    if (videoPlayer) return;
+    if (!videoPlayerRef.current) return;
+
+    console.log('Creating background video player...');
+    
+    try {
+      const player = new window.YT.Player(videoPlayerRef.current, {
+        videoId: YOUTUBE_VIDEO_ID,
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          mute: 1,
+          loop: 1,
+          playlist: YOUTUBE_VIDEO_ID,
+        },
+        events: {
+          onReady: (event) => {
+            console.log('Video player ready!');
+            setVideoPlayer(event.target);
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error creating video player:', error);
+    }
+  }, [ytReady, videoPlayer]);
+
+  // Debug - sprawdź czy ref jest gotowy
+  useEffect(() => {
+    console.log('windyRef:', windyRef.current);
+    console.log('ytPlayer:', ytPlayer);
+  }, [ytPlayer]);
 
   const playWindyEffect = useCallback(() => {
     console.log('Trying to play windy effect...');
@@ -52,69 +175,68 @@ const SeverancePomodoro = () => {
 
   const startFadeOut = useCallback(() => {
     console.log('Starting fade-out...');
-    if (audioRef.current && !audioRef.current.paused) {
-      const startVolume = audioRef.current.volume;
+    if (ytPlayer && ytPlayer.getPlayerState && ytPlayer.getPlayerState() === 1) {
+      const startVolume = ytPlayer.getVolume();
       let step = 0;
-      const totalSteps = 5; // 5 kroków x 200ms = 1000ms (1 sekunda)
+      const totalSteps = 5;
       
       const fadeInterval = setInterval(() => {
         step++;
         const newVolume = startVolume * (1 - step / totalSteps);
         
         if (step >= totalSteps || newVolume <= 0) {
-          if (audioRef.current) {
-            audioRef.current.volume = 0;
-            audioRef.current.pause();
-            setMusicPosition(audioRef.current.currentTime);
-            console.log('Fade-out complete, music paused at:', audioRef.current.currentTime);
-          }
+          ytPlayer.setVolume(0);
+          ytPlayer.pauseVideo();
+          setMusicPosition(ytPlayer.getCurrentTime());
+          console.log('Fade-out complete, music paused at:', ytPlayer.getCurrentTime());
           clearInterval(fadeInterval);
         } else {
-          if (audioRef.current) {
-            audioRef.current.volume = newVolume;
-          }
+          ytPlayer.setVolume(newVolume);
         }
       }, 200);
     }
-  }, []);
+  }, [ytPlayer]);
 
   const startWorkMusic = useCallback(() => {
-    console.log('startWorkMusic called, musicPosition:', musicPosition);
-    if (audioRef.current) {
-      audioRef.current.currentTime = musicPosition;
-      audioRef.current.volume = 0;
-      audioRef.current.play()
-        .then(() => console.log('Music started playing from:', musicPosition))
-        .catch(err => console.error('Music play error:', err));
+    console.log('startWorkMusic called, musicPosition:', musicPosition, 'ytPlayer:', ytPlayer);
+    if (ytPlayer && ytPlayer.seekTo) {
+      ytPlayer.seekTo(musicPosition, true);
+      ytPlayer.setVolume(0);
+      ytPlayer.playVideo();
+      console.log('Music started playing from:', musicPosition);
       
-      let volume = 0;
+      let step = 0;
+      const totalSteps = 7;
+      const targetVolume = 70;
+      
       const fadeInterval = setInterval(() => {
-        volume += 0.1;
-        if (volume >= 0.7) {
-          if (audioRef.current) {
-            audioRef.current.volume = 0.7;
-          }
+        step++;
+        const newVolume = (targetVolume * step) / totalSteps;
+        
+        if (step >= totalSteps) {
+          ytPlayer.setVolume(targetVolume);
           clearInterval(fadeInterval);
         } else {
-          if (audioRef.current) {
-            audioRef.current.volume = volume;
-          }
+          ytPlayer.setVolume(newVolume);
         }
       }, 400);
+    } else {
+      console.error('ytPlayer not ready!');
     }
-  }, [musicPosition]);
+  }, [musicPosition, ytPlayer]);
 
   const handleTimerEnd = useCallback(() => {
+    console.log('Timer ended, starting transition');
+    
     setIsTransitioning(true);
     setIsRunning(false);
     
-    const wasWork = isWork; // Zapisz aktualny stan przed zmianą
+    const wasWork = isWork;
     
-    // Zatrzymaj muzykę tylko jeśli kończy się praca
-    if (wasWork && audioRef.current && !audioRef.current.paused) {
-      audioRef.current.pause();
-      setMusicPosition(audioRef.current.currentTime);
-      console.log('Music paused at:', audioRef.current.currentTime);
+    if (wasWork && ytPlayer && ytPlayer.getPlayerState && ytPlayer.getPlayerState() === 1) {
+      console.log('Music still playing, force pause');
+      ytPlayer.pauseVideo();
+      setMusicPosition(ytPlayer.getCurrentTime());
     }
     
     setWindyPlaying(true);
@@ -125,11 +247,19 @@ const SeverancePomodoro = () => {
     
     setTimeout(() => {
       setWindyPlaying(false);
-      setIsWork(!wasWork); // Zmień stan
-      setTimeLeft(wasWork ? breakDuration : workDuration);
+      setIsWork(!wasWork);
+      const newDuration = wasWork ? breakDuration : workDuration;
+      setTimeLeft(newDuration);
+      
+      // Aktualizuj "stare" wartości
+      if (!wasWork) {
+        setOldWorkDuration(workDuration);
+      } else {
+        setOldBreakDuration(breakDuration);
+      }
+      
       setIsTransitioning(false);
       
-      // Jeśli kończyła się przerwa, uruchom muzykę
       if (!wasWork) {
         console.log('Break ending, starting work with music...');
         setTimeout(() => {
@@ -137,23 +267,21 @@ const SeverancePomodoro = () => {
           startWorkMusic();
         }, 100);
       } else {
-        // Jeśli kończyła się praca, tylko uruchom timer (bez muzyki - to przerwa)
-        console.log('Work ending, starting break...');
+        console.log('Work ending, starting break (no music)...');
         setIsRunning(true);
       }
     }, 4000);
-  }, [isWork, workDuration, breakDuration, playWindyEffect, startWorkMusic]);
+  }, [isWork, workDuration, breakDuration, playWindyEffect, startWorkMusic, ytPlayer]);
 
   useEffect(() => {
     if (isRunning && !isPaused && !isTransitioning) {
       intervalRef.current = setInterval(() => {
         setTimeLeft(prev => {
           if (prev <= 1) {
-            // Muzyka powinna być już wyciszona przez fade-out
             handleTimerEnd();
             return 0;
           }
-          if (isWork && prev === 2) { // Ostatnia sekunda - fade-out
+          if (isWork && prev === 2) {
             console.log('1 second left, starting fade-out');
             startFadeOut();
           }
@@ -170,13 +298,17 @@ const SeverancePomodoro = () => {
   }, [isRunning, isPaused, isTransitioning, isWork, handleTimerEnd, startFadeOut]);
 
   const handleStart = () => {
+    if (!ytPlayer) {
+      alert('YouTube player is not ready yet. Please wait a moment and try again.');
+      return;
+    }
+    
     setView('timer');
     setIsWork(true);
     setTimeLeft(workDuration);
     setIsTransitioning(true);
     setWindyPlaying(true);
     
-    // Opóźnij odtworzenie dźwięku żeby ref był gotowy
     setTimeout(() => {
       playWindyEffect();
     }, 100);
@@ -190,18 +322,14 @@ const SeverancePomodoro = () => {
   };
 
   const togglePause = () => {
-    if (isWork && !isTransitioning) {
+    if (isWork && !isTransitioning && ytPlayer) {
       setIsPaused(!isPaused);
       if (!isPaused) {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          setMusicPosition(audioRef.current.currentTime);
-        }
+        ytPlayer.pauseVideo();
+        setMusicPosition(ytPlayer.getCurrentTime());
       } else {
-        if (audioRef.current) {
-          audioRef.current.currentTime = musicPosition;
-          audioRef.current.play();
-        }
+        ytPlayer.seekTo(musicPosition, true);
+        ytPlayer.playVideo();
       }
     }
   };
@@ -212,6 +340,32 @@ const SeverancePomodoro = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleUpdateSettings = () => {
+    // Oblicz ile czasu upłynęło w STARYM cyklu
+    const oldCycleDuration = isWork ? oldWorkDuration : oldBreakDuration;
+    const elapsedInCurrentCycle = oldCycleDuration - timeLeft;
+    
+    console.log('OLD cycle duration:', oldCycleDuration);
+    console.log('Time left:', timeLeft);
+    console.log('Elapsed in current cycle:', elapsedInCurrentCycle);
+    
+    // Ustaw nowy czas: NOWA długość cyklu minus to co już upłynęło
+    const newCycleDuration = isWork ? workDuration : breakDuration;
+    const newTimeLeft = Math.max(1, newCycleDuration - elapsedInCurrentCycle);
+    
+    console.log('NEW cycle duration:', newCycleDuration);
+    console.log('New time left:', newTimeLeft);
+    
+    setTimeLeft(newTimeLeft);
+    
+    // Zapisz nowe wartości jako "stare" na przyszłość
+    setOldWorkDuration(workDuration);
+    setOldBreakDuration(breakDuration);
+    
+    setView('timer');
+    setSettingsChanged(false);
+  };
+
   const formatTotalTime = (seconds) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -220,7 +374,54 @@ const SeverancePomodoro = () => {
 
   if (view === 'settings') {
     return (
-      <div className="min-h-screen bg-black text-gray-300 flex items-center justify-center p-8 font-mono">
+      <>
+        {/* Audio, YouTube player i przejścia - muszą być zawsze dostępne */}
+        <div style={{ position: 'absolute', top: '-9999px' }}>
+          <div ref={playerRef}></div>
+        </div>
+        <audio ref={windyRef} src="/windy_effect.mp3" preload="auto" />
+        
+        {/* Video w tle - ZAWSZE gra */}
+        <iframe
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            width: '177.77777778vh',
+            height: '56.25vw',
+            minHeight: '100vh',
+            minWidth: '100vw',
+            transform: 'translate(-50%, -50%)',
+            opacity: (isWork && !isPaused) ? 0.25 : 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+            transition: 'opacity 1s'
+          }}
+          src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${YOUTUBE_VIDEO_ID}&controls=0&showinfo=0&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3`}
+          frameBorder="0"
+          allow="autoplay; encrypted-media"
+        />
+        
+        {windyPlaying && (
+          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+            <div className="text-center animate-pulse">
+              <div className="text-6xl mb-4 text-white">◉</div>
+              <p className="text-sm tracking-widest text-gray-500">TRANSITIONING</p>
+            </div>
+          </div>
+        )}
+        
+        <div className="min-h-screen bg-black text-gray-300 flex items-center justify-center p-8 font-mono relative">
+        {/* Przycisk zamknięcia settings - tylko jeśli timer już działał */}
+        {isRunning && (
+          <button
+            onClick={() => setView('timer')}
+            className="absolute top-8 right-8 p-2 border border-gray-700 hover:border-white transition-all z-10"
+          >
+            <Settings size={20} />
+          </button>
+        )}
+        
         <div className="w-full max-w-md space-y-8">
           <div className="text-center mb-12">
             <h1 className="text-3xl font-light tracking-widest mb-2">LUMON INDUSTRIES</h1>
@@ -235,7 +436,10 @@ const SeverancePomodoro = () => {
                 {[30, 15*60, 30*60, 45*60, 60*60].map((duration, i) => (
                   <button
                     key={i}
-                    onClick={() => setWorkDuration(duration)}
+                    onClick={() => {
+                      setWorkDuration(duration);
+                      setSettingsChanged(true);
+                    }}
                     className={`p-3 text-xs border transition-all ${
                       workDuration === duration 
                         ? 'border-white bg-white text-black' 
@@ -254,7 +458,10 @@ const SeverancePomodoro = () => {
                 {[20, 5*60, 10*60, 30*60].map((duration, i) => (
                   <button
                     key={i}
-                    onClick={() => setBreakDuration(duration)}
+                    onClick={() => {
+                      setBreakDuration(duration);
+                      setSettingsChanged(true);
+                    }}
                     className={`p-3 text-xs border transition-all ${
                       breakDuration === duration 
                         ? 'border-white bg-white text-black' 
@@ -271,29 +478,77 @@ const SeverancePomodoro = () => {
               <label className="block text-xs mb-3 text-gray-400 tracking-wider">TOTAL WORK TIME</label>
               <input
                 type="number"
-                step="0.5"
-                value={totalWorkTime / 3600}
-                onChange={(e) => setTotalWorkTime(parseFloat(e.target.value) * 3600)}
+                step="0.01"
+                value={isTotalWorkFocused ? totalWorkInput : ((totalWorkTime - elapsedTotal) / 3600).toFixed(2)}
+                onFocus={(e) => {
+                  setIsTotalWorkFocused(true);
+                  setTotalWorkInput(e.target.value);
+                }}
+                onBlur={() => {
+                  setIsTotalWorkFocused(false);
+                  const value = parseFloat(totalWorkInput) || 0;
+                  setTotalWorkTime(value * 3600 + elapsedTotal);
+                  setSettingsChanged(true);
+                }}
+                onChange={(e) => {
+                  if (isTotalWorkFocused) {
+                    setTotalWorkInput(e.target.value);
+                  }
+                }}
                 className="w-full p-3 bg-black border border-gray-700 text-white focus:border-gray-500 focus:outline-none"
               />
-              <p className="text-xs text-gray-600 mt-2">Hours (default: 7.5)</p>
+              <p className="text-xs text-gray-600 mt-2">
+                Hours remaining (default: 7.5, elapsed: {formatTotalTime(elapsedTotal)})
+              </p>
             </div>
 
             <button
-              onClick={handleStart}
+              onClick={isRunning ? handleUpdateSettings : handleStart}
               className="w-full p-4 border border-white bg-white text-black hover:bg-black hover:text-white transition-all text-sm tracking-widest mt-8"
             >
-              BEGIN REFINEMENT
+              {isRunning ? 'UPDATE SETTINGS' : 'BEGIN REFINEMENT'}
             </button>
+            
+            {!ytPlayer && (
+              <p className="text-xs text-yellow-600 text-center mt-2">
+                Loading YouTube player...
+              </p>
+            )}
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8 font-mono relative overflow-hidden">
-      <audio ref={audioRef} loop src="/track1.mp3" preload="auto" />
+      {/* YouTube audio player - ukryty */}
+      <div style={{ position: 'absolute', top: '-9999px' }}>
+        <div ref={playerRef}></div>
+      </div>
+      
+      {/* Video w tle - ZAWSZE w DOM */}
+      <iframe
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          width: '177.77777778vh',
+          height: '56.25vw',
+          minHeight: '100vh',
+          minWidth: '100vw',
+          transform: 'translate(-50%, -50%)',
+          opacity: (isWork && !isPaused) ? 0.25 : 0,
+          pointerEvents: 'none',
+          zIndex: 0,
+          transition: 'opacity 1s'
+        }}
+        src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${YOUTUBE_VIDEO_ID}&controls=0&showinfo=0&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3`}
+        frameBorder="0"
+        allow="autoplay; encrypted-media"
+      />
+      
       <audio ref={windyRef} src="/windy_effect.mp3" preload="auto" />
       
       {windyPlaying && (
@@ -312,7 +567,7 @@ const SeverancePomodoro = () => {
         <Settings size={20} />
       </button>
 
-      <div className="text-center space-y-12 max-w-2xl w-full">
+      <div className="text-center space-y-12 max-w-2xl w-full relative z-10">
         <div>
           <p className="text-xs text-gray-500 tracking-widest mb-4">
             {isWork ? 'INNIE - WORK CYCLE' : 'OUTIE - RECOVERY PERIOD'}
@@ -330,19 +585,6 @@ const SeverancePomodoro = () => {
           >
             {isPaused ? <Play size={24} /> : <Pause size={24} />}
           </button>
-        )}
-
-        <div className="mt-16 space-y-4">
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>{formatTotalTime(elapsedTotal)}</span>
-            <span>TOTAL ELAPSED</span>
-          </div>
-        </div>
-
-        {isWork && (
-          <div className="text-xs text-gray-600 mt-8">
-            <p>NOW PLAYING: {tracks[currentTrack]}</p>
-          </div>
         )}
       </div>
     </div>
