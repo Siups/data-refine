@@ -11,7 +11,6 @@ const SeverancePomodoro = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedTotal, setElapsedTotal] = useState(0);
-  const [currentTrack] = useState(0);
   const [musicPosition, setMusicPosition] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [windyPlaying, setWindyPlaying] = useState(false);
@@ -205,6 +204,11 @@ const SeverancePomodoro = () => {
       ytPlayer.playVideo();
       console.log('Music started playing from:', musicPosition);
       
+      // Uruchom video
+      if (videoPlayer) {
+        videoPlayer.playVideo();
+      }
+      
       let step = 0;
       const totalSteps = 7;
       const targetVolume = 70;
@@ -223,7 +227,7 @@ const SeverancePomodoro = () => {
     } else {
       console.error('ytPlayer not ready!');
     }
-  }, [musicPosition, ytPlayer]);
+  }, [musicPosition, ytPlayer, videoPlayer]);
 
   const handleTimerEnd = useCallback(() => {
     console.log('Timer ended, starting transition');
@@ -237,6 +241,11 @@ const SeverancePomodoro = () => {
       console.log('Music still playing, force pause');
       ytPlayer.pauseVideo();
       setMusicPosition(ytPlayer.getCurrentTime());
+    }
+    
+    // Pauzuj video
+    if (wasWork && videoPlayer) {
+      videoPlayer.pauseVideo();
     }
     
     setWindyPlaying(true);
@@ -271,7 +280,7 @@ const SeverancePomodoro = () => {
         setIsRunning(true);
       }
     }, 4000);
-  }, [isWork, workDuration, breakDuration, playWindyEffect, startWorkMusic, ytPlayer]);
+  }, [isWork, workDuration, breakDuration, playWindyEffect, startWorkMusic, ytPlayer, videoPlayer]);
 
   useEffect(() => {
     if (isRunning && !isPaused && !isTransitioning) {
@@ -327,9 +336,15 @@ const SeverancePomodoro = () => {
       if (!isPaused) {
         ytPlayer.pauseVideo();
         setMusicPosition(ytPlayer.getCurrentTime());
+        if (videoPlayer) {
+          videoPlayer.pauseVideo();
+        }
       } else {
         ytPlayer.seekTo(musicPosition, true);
         ytPlayer.playVideo();
+        if (videoPlayer) {
+          videoPlayer.playVideo();
+        }
       }
     }
   };
@@ -381,26 +396,29 @@ const SeverancePomodoro = () => {
         </div>
         <audio ref={windyRef} src="/windy_effect.mp3" preload="auto" />
         
-        {/* Video w tle - ZAWSZE gra */}
-        <iframe
+        {/* Video player - ZAWSZE w DOM */}
+        <div 
           style={{
             position: 'fixed',
             top: '50%',
             left: '50%',
-            width: '177.77777778vh',
-            height: '56.25vw',
-            minHeight: '100vh',
-            minWidth: '100vw',
+            width: '100vw',
+            height: '100vh',
             transform: 'translate(-50%, -50%)',
-            opacity: (isWork && !isPaused) ? 0.25 : 0,
+            opacity: isWork ? 0.25 : 0,
             pointerEvents: 'none',
             zIndex: 0,
             transition: 'opacity 1s'
           }}
-          src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${YOUTUBE_VIDEO_ID}&controls=0&showinfo=0&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3`}
-          frameBorder="0"
-          allow="autoplay; encrypted-media"
-        />
+        >
+          <div 
+            ref={videoPlayerRef}
+            style={{
+              width: '100%',
+              height: '100%'
+            }}
+          ></div>
+        </div>
         
         {windyPlaying && (
           <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
@@ -528,26 +546,29 @@ const SeverancePomodoro = () => {
         <div ref={playerRef}></div>
       </div>
       
-      {/* Video w tle - ZAWSZE w DOM */}
-      <iframe
+      {/* Video player - ZAWSZE w DOM */}
+      <div 
         style={{
           position: 'fixed',
           top: '50%',
           left: '50%',
-          width: '177.77777778vh',
-          height: '56.25vw',
-          minHeight: '100vh',
-          minWidth: '100vw',
+          width: '100vw',
+          height: '100vh',
           transform: 'translate(-50%, -50%)',
-          opacity: (isWork && !isPaused) ? 0.25 : 0,
+          opacity: isWork ? 0.25 : 0,
           pointerEvents: 'none',
           zIndex: 0,
           transition: 'opacity 1s'
         }}
-        src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${YOUTUBE_VIDEO_ID}&controls=0&showinfo=0&modestbranding=1&disablekb=1&fs=0&iv_load_policy=3`}
-        frameBorder="0"
-        allow="autoplay; encrypted-media"
-      />
+      >
+        <div 
+          ref={videoPlayerRef}
+          style={{
+            width: '100%',
+            height: '100%'
+          }}
+        ></div>
+      </div>
       
       <audio ref={windyRef} src="/windy_effect.mp3" preload="auto" />
       
