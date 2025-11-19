@@ -19,7 +19,6 @@ const SeverancePomodoro = () => {
   const [videoPlayer, setVideoPlayer] = useState(null);
   const [totalWorkInput, setTotalWorkInput] = useState('');
   const [isTotalWorkFocused, setIsTotalWorkFocused] = useState(false);
-  const [settingsChanged, setSettingsChanged] = useState(false);
   const [oldWorkDuration, setOldWorkDuration] = useState(30);
   const [oldBreakDuration, setOldBreakDuration] = useState(20);
   
@@ -27,10 +26,6 @@ const SeverancePomodoro = () => {
   const intervalRef = useRef(null);
   const playerRef = useRef(null);
   const videoPlayerRef = useRef(null);
-
-  const tracks = [
-    'Severance OST - Theodore Shapiro'
-  ];
 
   const YOUTUBE_VIDEO_ID = 'JRnDYB28bL8';
 
@@ -91,7 +86,7 @@ const SeverancePomodoro = () => {
     console.log('Creating YouTube player...');
     
     try {
-      const player = new window.YT.Player(playerRef.current, {
+      new window.YT.Player(playerRef.current, {
         height: '0',
         width: '0',
         videoId: YOUTUBE_VIDEO_ID,
@@ -127,7 +122,7 @@ const SeverancePomodoro = () => {
     console.log('Creating background video player...');
     
     try {
-      const player = new window.YT.Player(videoPlayerRef.current, {
+      new window.YT.Player(videoPlayerRef.current, {
         videoId: YOUTUBE_VIDEO_ID,
         playerVars: {
           autoplay: 0,
@@ -378,7 +373,6 @@ const SeverancePomodoro = () => {
     setOldBreakDuration(breakDuration);
     
     setView('timer');
-    setSettingsChanged(false);
   };
 
   const formatTotalTime = (seconds) => {
@@ -413,6 +407,7 @@ const SeverancePomodoro = () => {
         >
           <div 
             ref={videoPlayerRef}
+            title="Background video"
             style={{
               width: '100%',
               height: '100%'
@@ -454,10 +449,7 @@ const SeverancePomodoro = () => {
                 {[30, 15*60, 30*60, 45*60, 60*60].map((duration, i) => (
                   <button
                     key={i}
-                    onClick={() => {
-                      setWorkDuration(duration);
-                      setSettingsChanged(true);
-                    }}
+                    onClick={() => setWorkDuration(duration)}
                     className={`p-3 text-xs border transition-all ${
                       workDuration === duration 
                         ? 'border-white bg-white text-black' 
@@ -476,10 +468,7 @@ const SeverancePomodoro = () => {
                 {[20, 5*60, 10*60, 30*60].map((duration, i) => (
                   <button
                     key={i}
-                    onClick={() => {
-                      setBreakDuration(duration);
-                      setSettingsChanged(true);
-                    }}
+                    onClick={() => setBreakDuration(duration)}
                     className={`p-3 text-xs border transition-all ${
                       breakDuration === duration 
                         ? 'border-white bg-white text-black' 
@@ -506,7 +495,6 @@ const SeverancePomodoro = () => {
                   setIsTotalWorkFocused(false);
                   const value = parseFloat(totalWorkInput) || 0;
                   setTotalWorkTime(value * 3600 + elapsedTotal);
-                  setSettingsChanged(true);
                 }}
                 onChange={(e) => {
                   if (isTotalWorkFocused) {
@@ -563,6 +551,7 @@ const SeverancePomodoro = () => {
       >
         <div 
           ref={videoPlayerRef}
+          title="Background video player"
           style={{
             width: '100%',
             height: '100%'
