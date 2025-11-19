@@ -386,7 +386,7 @@ const SeverancePomodoro = () => {
       <>
         {/* Audio, YouTube player i przejścia - muszą być zawsze dostępne */}
         <div style={{ position: 'absolute', top: '-9999px' }}>
-          <div ref={playerRef}></div>
+          <div id="youtube-audio-player" ref={playerRef}></div>
         </div>
         <audio ref={windyRef} src="/windy_effect.mp3" preload="auto" />
         
@@ -406,6 +406,7 @@ const SeverancePomodoro = () => {
           }}
         >
           <div 
+            id="youtube-video-player"
             ref={videoPlayerRef}
             title="Background video"
             style={{
