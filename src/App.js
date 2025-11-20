@@ -385,6 +385,20 @@ const SeverancePomodoro = () => {
             <h1 className="text-3xl font-light tracking-widest mb-2">LUMON INDUSTRIES</h1>
             <div className="h-px bg-gray-700 w-32 mx-auto mb-4"></div>
             <p className="text-xs text-gray-500 tracking-wider">MACRODATA REFINEMENT</p>
+            <p className="text-xs text-gray-600 mt-4 italic">
+              Unofficial fan project inspired by Apple TV+'s Severance
+            </p>
+            <p className="text-xs text-gray-600 mt-1">
+              Music by{' '}
+              <a 
+                href="https://www.youtube.com/watch?v=JRnDYB28bL8" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="underline hover:text-gray-400 transition-colors"
+              >
+                ODESZA
+              </a>
+            </p>
           </div>
 
           <div className="space-y-6 border border-gray-800 p-8 bg-gray-950">
